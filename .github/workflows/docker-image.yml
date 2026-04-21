@@ -1,0 +1,40 @@
+name: Build SSR-Local Android arm64
+
+on: [push, pull_request]
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    container:
+      # 使用集成好 NDK 环境的 Docker 镜像
+      image: ghcr.io/shadowsocks/docker-android-ndk:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build arm64-v8a
+        run: |
+          # 1. 准备构建目录
+          mkdir build && cd build
+          
+          # 2. 使用 CMake 进行交叉编译
+          # 注意：此镜像中 NDK 路径通常在 /opt/android-ndk
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_MBEDTLS=ON \
+            -DWITH_SODIUM=ON
+
+          # 3. 执行编译
+          make -j$(nproc) ssr-local
+
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssr-local-arm64
+          path: build/ssr-local
