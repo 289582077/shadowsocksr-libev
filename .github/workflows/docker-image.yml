@@ -1,40 +1,41 @@
-name: Build SSR-Local Android arm64
+name: Build SSR-Local Android
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
-    container:
-      # 使用集成好 NDK 环境的 Docker 镜像
-      image: ghcr.io/shadowsocks/docker-android-ndk:latest
+    strategy:
+      matrix:
+        arch: [arm64-v8a, armeabi-v7a]
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Build arm64-v8a
-        run: |
-          # 1. 准备构建目录
-          mkdir build && cd build
-          
-          # 2. 使用 CMake 进行交叉编译
-          # 注意：此镜像中 NDK 路径通常在 /opt/android-ndk
-          cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-21 \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DWITH_MBEDTLS=ON \
-            -DWITH_SODIUM=ON
+      - name: Set up NDK
+        # 使用官方 Action 安装 NDK，比 Docker 更可靠
+        uses: nndk/nndk@v1
+        with:
+          ndk-version: r21e 
 
-          # 3. 执行编译
+      - name: Install Build Essentials
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential autoconf libtool
+
+      - name: Build with CMake
+        run: |
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.arch }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_BUILD_TYPE=Release
           make -j$(nproc) ssr-local
 
-      - name: Upload Binary
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ssr-local-arm64
+          name: ssr-local-${{ matrix.arch }}
           path: build/ssr-local
