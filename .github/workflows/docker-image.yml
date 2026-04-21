@@ -15,23 +15,19 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up NDK
-        # 使用官方 Action 安装 NDK，比 Docker 更可靠
-        uses: nndk/nndk@v1
-        with:
-          ndk-version: r21e 
-
-      - name: Install Build Essentials
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential autoconf libtool
-
-      - name: Build with CMake
+      - name: Build SSR
         run: |
+          # 1. 使用 GitHub 宿主机自带的 NDK 路径
+          # 通常路径在 /usr/local/lib/android/sdk/ndk-bundle 或通过环境变量 ANDROID_NDK_LATEST_HOME 获取
+          NDK_PATH=$ANDROID_NDK_LATEST_HOME
+          
           mkdir build && cd build
           cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.arch }} \
             -DANDROID_PLATFORM=android-21 \
             -DCMAKE_BUILD_TYPE=Release
+          
           make -j$(nproc) ssr-local
 
       - name: Upload Artifact
